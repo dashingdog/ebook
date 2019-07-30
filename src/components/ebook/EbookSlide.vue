@@ -35,16 +35,18 @@
 import { ebookMixin } from '../../utils/mixin'
 import EbookLoading from './EbookLoading'
 import EbookSlideContents from './EbookSlideContents'
+import EbookSlideBookmark from './EbookSlideBookmark'
 export default {
   mixins: [ebookMixin],
   components: {
-    EbookLoading
+    EbookLoading,
+    EbookSlideBookmark
   },
   data () {
     return {
       currentTab: 1,
       content: EbookSlideContents,
-      bookmark: null
+      bookmark: EbookSlideBookmark
     }
   },
   methods: {
