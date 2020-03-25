@@ -24,6 +24,7 @@ import {
   getTheme,
   saveTheme,
   getLocation } from '../../utils/localStorage'
+import { getLocalForage } from '../../utils/localForage'
 global.ePub = Epub
 export default {
   mixins: [ebookMixin],
@@ -189,7 +190,6 @@ export default {
         event.stopPropagation()
       })
       this.rendition.on('touchmove', event => {
-        console.log(event)
       })
     },
     parseBook () {
@@ -214,8 +214,7 @@ export default {
         })
       })
     },
-    initEpub () {
-      const url = `${process.env.VUE_APP_RES_URL}/epub/${this.fileName}.epub`
+    initEpub (url) {
       this.book = new Epub(url)
       this.setCurrentBook(this.book)
       this.initRendition()
@@ -231,9 +230,19 @@ export default {
     }
   },
   mounted () {
-    const fileName = this.$route.params.fileName.split('|').join('/')
-    this.setFileName(fileName).then(() => {
-      this.initEpub()
+    const books = this.$route.params.fileName.split('|')
+    const fileName = books[1]
+    getLocalForage(fileName, (err, blob) => {
+      if (!err && blob) {
+        this.setFileName(books.join('/')).then(() => {
+          this.initEpub(blob)
+        })
+      } else {
+        this.setFileName(books.join('/')).then(() => {
+          const url = `${process.env.VUE_APP_EPUB_URL}/${this.fileName}.epub`
+          this.initEpub(url)
+        })
+      }
     })
   },
   data () {

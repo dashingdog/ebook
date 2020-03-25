@@ -51,7 +51,6 @@ export default {
   },
   methods: {
     hide () {
-      console.log('aaa')
       this.hideTitleAndMenu()
     },
     selectTab (tab) {

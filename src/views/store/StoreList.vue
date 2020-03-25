@@ -28,7 +28,9 @@ export default {
     Scroll,
     Featured
   },
+
   computed: {
+
     title () {
       if (this.list) {
         return this.total && this.$t('home.allBook').replace('$1', this.totalNumber)

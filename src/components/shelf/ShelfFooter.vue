@@ -5,11 +5,13 @@
        @click="onTabClick(item)"
        >
         <div class="shelf-footer-tab" :class = "{'is-selected':isSelected}">
-            <div class="icon-private tab-icon" v-if='item.index ===1'></div>
-            <div class="icon-download tab-icon" v-if='item.index ===2'></div>
+            <div class="icon-private tab-icon" v-if='item.index ===1 && !isPrivate'></div>
+            <div class="icon-private-see tab-icon" v-if='item.index ===1 && isPrivate'></div>
+            <div class="icon-download tab-icon" v-if='item.index ===2 && !isDownload'></div>
+            <div class="icon-download-remove tab-icon" v-if='item.index ===2 && isDownload'></div>
             <div class="icon-move tab-icon" v-if='item.index ===3'></div>
             <div class="icon-shelf tab-icon" v-if='item.index ===4'></div>
-            <div class="tab-text">{{item.label}}</div>
+            <div class="tab-text" :class="{'remove-text':item.index === 4}">{{label(item)}}</div>
         </div>
        </div>
    </div>
@@ -17,6 +19,9 @@
 
 <script>
 import { storeShelfMixin } from '../../utils/mixin'
+import { saveBookShelf, removeLocalStorage } from '../../utils/localStorage'
+import { download } from '../../api/store'
+import { removeLocalForage } from '../../utils/localForage'
 export default {
   mixins: [storeShelfMixin],
   computed: {
@@ -42,41 +47,218 @@ export default {
         label: this.$t('shelf.remove'),
         index: 4
       }]
+    },
+    isPrivate () {
+      if (!this.isSelected) {
+        return false
+      } else {
+        return this.shelfSelected.every(item => item.private)
+      }
+    },
+    isDownload () {
+      if (!this.isSelected) {
+        return false
+      } else {
+        return this.shelfSelected.every(item => item.cache)
+      }
     }
   },
   data () {
     return {
-
+      popupMenu: null
     }
   },
   methods: {
-    onTabClick (item) {
-      const popup = this.popup({
-        title: '标题',
+    async downloadSelectedBook () {
+      for (let i = 0; i < this.shelfSelected.length; i++) {
+        await this.downloadBook(this.shelfSelected[i]).then(book => {
+          book.cache = true
+        })
+      }
+    },
+    removeSelectedBook () {
+      Promise.all(this.shelfSelected.map(book => this.removeBook(book)))
+        .then(books => {
+          books.map(book => {
+            book.cache = false
+          })
+          saveBookShelf(this.shelfList)
+          this.simpleToast(this.$t('shelf.removeDownloadSuccess'))
+        })
+    },
+    removeBook (book) {
+      return new Promise((resolve, reject) => {
+        removeLocalStorage(`${book.categoryText}/${book.fileName}-info`)
+        removeLocalForage(`${book.fileName}`)
+        resolve(book)
+      })
+    },
+    downloadBook (book) {
+      let text = ''
+      const toast = this.toast({
+        text
+      })
+      toast.continueShow()
+      return new Promise((resolve, reject) => {
+        download(book, () => {
+          toast.remove()
+          resolve(book)
+        }, reject, progressEvent => {
+          const progress = Math.floor(progressEvent.loaded / progressEvent.total * 100) + '%'
+          const text = this.$t('shelf.progressDownload').replace('$1', `${book.fileName}.epub(${progress})`)
+          toast.updateText(text)
+        })
+      })
+    },
+    onComplete () {
+      this.hidePopup()
+      this.setIsEditMode(false)
+      saveBookShelf(this.shelfList)
+    },
+    async setDownLoad () {
+      // let isDownload
+      // if (this.isDownload) {
+      //   isDownload = false
+      // } else {
+      //   isDownload = true
+      // }
+      // this.shelfSelected.forEach(book => {
+      //   book.cache = isDownload
+      // })
+      this.onComplete()
+
+      if (this.isDownload) {
+        this.removeSelectedBook()
+      } else {
+        await this.downloadSelectedBook()
+        saveBookShelf(this.shelfList)
+        this.simpleToast(this.$t('shelf.setDownloadSuccess'))
+      }
+    },
+    setPrivate () {
+      let isPrivate
+      if (this.isPrivate) {
+        isPrivate = false
+      } else {
+        isPrivate = true
+      }
+      this.shelfSelected.forEach(book => {
+        book.private = isPrivate
+      })
+      this.onComplete()
+      if (isPrivate) {
+        this.simpleToast(this.$t('shelf.setPrivateSuccess'))
+      } else {
+        this.simpleToast(this.$t('shelf.closePrivateSuccess'))
+      }
+    },
+    label (item) {
+      switch (item.index) {
+        case 1:
+          return this.isPrivate ? item.label2 : item.label
+        case 2:
+          return this.isDownload ? item.label2 : item.label
+        default:
+          return item.label
+      }
+    },
+    hidePopup () {
+      this.popupMenu.hide()
+    },
+    showPrivate () {
+      this.popupMenu = this.popup({
+        title: this.isPrivate ? this.$t('shelf.closePrivateTitle') : this.$t('shelf.setPrivateTitle'),
         btn: [{
-          text: '确认',
+          text: this.isPrivate ? this.$t('shelf.close') : this.$t('shelf.open'),
           click: () => {
-            this.toast({ text: '正在确认...' }).show()
-            popup.hide()
+            this.setPrivate()
           }
         },
         {
-          text: '取消',
+          text: this.$t('shelf.cancel'),
           click: () => {
-            this.toast({ text: '正在取消...' }).show()
-            popup.hide()
-          }
-        },
-        {
-          text: '删除',
-          type: 'danger',
-          click: () => {
-            this.toast({ text: '正在删除...' }).show()
-            popup.hide()
+            this.hidePopup()
           }
         }]
       })
-      popup.show()
+      this.popupMenu.show()
+    },
+    showDownload () {
+      this.popupMenu = this.popup({
+        title: this.isDownload ? this.$t('shelf.removeDownloadTitle')
+          : this.$t('shelf.setDownloadTitle'),
+        btn: [{
+          text: this.isDownload ? this.$t('shelf.delete') : this.$t('shelf.open'),
+          click: () => {
+            this.setDownLoad()
+          }
+        },
+        {
+          text: this.$t('shelf.cancel'),
+          click: () => {
+            this.hidePopup()
+          }
+        }]
+      })
+      this.popupMenu.show()
+    },
+    removeSelected () {
+      if (this.currentType === 1) {
+        this.shelfSelected.forEach(selected => {
+          this.setShelfList(this.shelfList.filter(book => book !== selected))
+        })
+      } else {
+        this.shelfSelected.forEach(selected => {
+          this.shelfCategory.itemList = this.shelfCategory.itemList.filter(book => book !== selected)
+          this.setShelfCategory(this.shelfCategory)
+        })
+      }
+      this.setShelfSelected([])
+      this.onComplete()
+    },
+    showRemove () {
+      let title
+      if (this.shelfSelected.length === 1) {
+        title = this.$t('shelf.removeBookTitle').replace('$1', `《${this.shelfSelected[0].title}》`)
+      } else {
+        title = this.$t('shelf.removeBookTitle').replace('$1', this.$t('shelf.selectedBooks'))
+      }
+      this.popupMenu = this.popup({
+        title: title,
+        btn: [{
+          text: this.$t('shelf.removeBook'),
+          type: 'danger',
+          click: () => {
+            this.removeSelected()
+          }
+        },
+        {
+          text: this.$t('shelf.cancel'),
+          click: () => {
+            this.hidePopup()
+          }
+        }]
+      })
+      this.popupMenu.show()
+    },
+    onTabClick (item) {
+      if (!this.isSelected) {
+        return
+      }
+      switch (item.index) {
+        case 1:
+          this.showPrivate()
+          break
+        case 2:
+          this.showDownload()
+          break
+        case 3:
+          this.dialog().show()
+          break
+        case 4:
+          this.showRemove()
+          break
+      }
     }
   }
 }
@@ -112,6 +294,12 @@ export default {
                 margin-top: px2rem(5);
                 font-size: px2rem(12);
                 color:#666;
+                &.remove-text{
+                  color:$color-pink
+                }
+            }
+            .icon-shelf{
+              color:$color-pink;
             }
             &.is-selected{
                 opacity: 1;

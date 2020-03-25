@@ -30,6 +30,14 @@ export default {
   methods: {
     onItemClick () {
       if (this.isEditMode) {
+        if (this.data.type === 2) {
+          return
+        }
+        if (this.data.type === 3) {
+          gotoStoreHome(this)
+          this.setIsEditMode(false)
+          return
+        }
         this.data.selected = !this.data.selected
         if (this.data.selected) {
           this.shelfSelected.pushWithoutDuplicate(this.data)
@@ -40,7 +48,12 @@ export default {
         if (this.data.type === 1) {
           this.showBookDetail(this.data)
         } else if (this.data.type === 2) {
-
+          this.$router.push({
+            path: '/store/category',
+            query: {
+              title: this.data.title
+            }
+          })
         } else {
           gotoStoreHome(this)
         }

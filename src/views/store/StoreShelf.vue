@@ -1,13 +1,13 @@
 <template>
    <div class="store-shelf">
-       <shelfTitle></shelfTitle>
+       <shelfTitle :title="$t('shelf.title')"></shelfTitle>
        <scroll @onScroll="onScroll"
        class="store-shelf-scroll-wrapper"
        :top="0"
        :bottom="scrollBottom"
        ref="scroll">
          <shelf-search></shelf-search>
-         <shelf-list></shelf-list>
+         <shelf-list :data="shelfList"></shelf-list>
        </scroll>
        <shelf-footer></shelf-footer>
    </div>
@@ -19,9 +19,9 @@ import { storeShelfMixin } from '../../utils/mixin'
 import Scroll from '../../components/common/Scroll'
 import ShelfSearch from '../../components/shelf/ShelfSearch'
 import ShelfList from '../../components/shelf/ShelfList'
-import { shelf } from '../../api/store'
-import { appendAddToShelf } from '../../utils/store'
+
 import ShelfFooter from '../../components/shelf/ShelfFooter'
+
 export default {
   mixins: [storeShelfMixin],
   data () {
@@ -38,20 +38,15 @@ export default {
     }
   },
   methods: {
-    getShelfList () {
-      shelf().then(response => {
-        console.log(response)
-        if (response.status === 200 && response.data && response.data.bookList) {
-          this.setShelfList(appendAddToShelf(response.data.bookList))
-        }
-      })
-    },
+
     onScroll (offsetY) {
       this.setOffsetY(offsetY)
     }
   },
   mounted () {
     this.getShelfList()
+    this.setShelfCategory([])
+    this.setCurrentType(1)
   },
   components: {
     ShelfTitle,

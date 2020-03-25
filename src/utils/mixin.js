@@ -92,13 +92,13 @@ export const storeHomeMixin = {
     getShelfList () {
       let shelfList = getBookShelf()
       if (!shelfList) {
-        // shelf().then(response => {
-        //   if (response.status === 200 && response.data && response.data.bookList) {
-        //     shelfList = appendAddToShelf(response.data.bookList)
-        saveBookShelf(shelfList)
-        //     return this.setShelfList(shelfList)
-        //   }
-        // })
+        shelf().then(response => {
+          if (response.status === 200 && response.data && response.data.bookList) {
+            shelfList = appendAddToShelf(response.data.bookList)
+            saveBookShelf(shelfList)
+            return this.setShelfList(shelfList)
+          }
+        })
       } else {
         return this.setShelfList(shelfList)
       }

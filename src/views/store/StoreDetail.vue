@@ -79,12 +79,17 @@ import BookInfo from '../../components/detail/BookInfo'
 import Scroll from '../../components/common/Scroll'
 import Toast from '../../components/common/Toast'
 import { detail } from '../../api/store'
+import { storeShelfMixin } from '../../utils/mixin'
 import { px2rem, realPx } from '../../utils/utils'
+import { getLocalForage } from '../../utils/localForage'
 import Epub from 'epubjs'
+import { removeFromBookShelf, addToShelf } from '../../utils/store'
+import { getBookShelf, saveBookShelf } from '../../utils/localStorage'
 
 global.ePub = Epub
 
 export default {
+  mixins: [storeShelfMixin],
   components: {
     DetailTitle,
     Scroll,
@@ -122,10 +127,12 @@ export default {
       return this.metadata ? this.metadata.creator : ''
     },
     inBookShelf () {
-      if (this.bookItem && this.bookShelf) {
+      if (this.bookItem && this.shelfList) {
+        // 定义一个自执行函数，将书架转为一维数组结构，并且只保留type为1的数据（type=1的为电子书）
         const flatShelf = (function flatten (arr) {
           return [].concat(...arr.map(v => v.itemList ? [v, ...flatten(v.itemList)] : v))
-        })(this.bookShelf).filter(item => item.type === 1)
+        })(this.shelfList).filter(item => item.type === 1)
+        // 查找当前电子书是否存在于书架
         const book = flatShelf.filter(item => item.fileName === this.bookItem.fileName)
         return book && book.length > 0
       } else {
@@ -153,6 +160,15 @@ export default {
   },
   methods: {
     addOrRemoveShelf () {
+      if (this.inBookShelf) {
+        this.setShelfList(removeFromBookShelf(this.bookItem))
+          .then(() => {
+            saveBookShelf(this.shelfList)
+          })
+      } else {
+        addToShelf(this.bookItem)
+        this.setShelfList(getBookShelf())
+      }
     },
     showToast (text) {
       this.toastText = text
@@ -164,6 +180,24 @@ export default {
       })
     },
     trialListening () {
+      getLocalForage(this.bookItem.fileName, (err, blob) => {
+        if (!err && blob && blob instanceof Blob) {
+          this.$router.push({
+            path: '/store/speaking',
+            query: {
+              fileName: this.bookItem.fileName
+            }
+          })
+        } else {
+          this.$router.push({
+            path: '/store/speaking',
+            query: {
+              fileName: this.bookItem.fileName,
+              opf: this.opf
+            }
+          })
+        }
+      })
     },
     read (item) {
       this.$router.push({
@@ -265,6 +299,9 @@ export default {
   },
   mounted () {
     this.init()
+    if (!this.shelfList || this.shelfList.length === 0) {
+      this.getShelfList()
+    }
   }
 }
 </script>

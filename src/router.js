@@ -30,12 +30,20 @@ export default new Router({
           component: () => import('./views/store/StoreShelf.vue')
         },
         {
+          path: 'category',
+          component: () => import('./views/store/StoreCategory.vue')
+        },
+        {
           path: 'list',
           component: () => import('./views/store/StoreList.vue')
         },
         {
           path: 'detail',
           component: () => import('./views/store/StoreDetail.vue')
+        },
+        {
+          path: 'speaking',
+          component: () => import('./views/store/StoreSpeaking.vue')
         }]
     }
   ]
